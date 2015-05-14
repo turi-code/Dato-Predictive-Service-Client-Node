@@ -6,10 +6,10 @@ The purpose of the Dato Predictive Service Node.js Client is to allow Node.js ap
 Installation
 ------------
 
-To install Dato Predictive Service Python Client, simply install with:
+To install Dato Predictive Service Node.js Client, simply install with:
 
 ```no-highlight
-npm install PredictiveServiceClient
+npm install dato-predictive-service-client
 ```
 
 Requirements
@@ -29,9 +29,16 @@ following information from a running Dato Predictive Service:
 
 Once you have obtained the above information, simply construct the PredictiveServiceClient:
 ```js
-var PredictiveServiceClient = require('PredictiveServiceClient');
+var PredictiveServiceClient = require('dato-predictive-service-client');
 
-var client = new PredictiveServiceClient("<endpoint>", "<api_key>", <should_verify_certificate>);
+// create client
+var client = new PredictiveServiceClient("<endpoint>", "<api_key>");
+
+// create client, SSL certificate verfication is disabled
+var client = new PredictiveServiceClient("<endpoint>", "<api_key>", false);
+
+// create client, SSL certificate verification is enabled
+var client = new PredictiveServiceClient("<endpoint>", "<api_key>", true);
 ``` 
 
 To enable SSL certificate verification for this Predictive Service, set 
@@ -39,10 +46,10 @@ To enable SSL certificate verification for this Predictive Service, set
 is launched with a self-signed certificate or without certificate, please set
 ``<should_verify_certificate>`` to **false**.
 
-The PredictiveServiceClient can also be constructed from using a Predictive Service
+The PredictiveServiceClient can also be constructed from by a Predictive Service
 [client configuration file](https://dato.com/products/create/docs/generated/graphlab.deploy.PredictiveService.save_client_config.html).
 ```js
-var client = new PredictiveServiceClient(null, null, null, "path to config file");
+var client = new PredictiveServiceClient("path to config file");
 ```
 
 #### Query
@@ -59,8 +66,7 @@ For example, the code below demonstrates how to query a recommender model, named
 
 ```js
 // construct data
-var data = new Object();
-data['users'] = ['Jacob Smith'];
+var data = {'users': ['Jacob Smith'] };
 
 // construct query
 var request_data = {"method": "recommend", "data": data};
@@ -72,7 +78,7 @@ client.query('rec', request_data, function(err, resp) {
 });
 ```
 
-** Notes **
+**Notes**
 
 - Different models could support different query methods (recommend, predict, query, etc.)
   and different syntax and format for **data**. For now, you will need to know the
@@ -119,12 +125,12 @@ Once you get the query result, you can submit feedback data corresponding to thi
 back to the Predictive Service. This feedback data can be used for evaluating your
 current model and training future models.
 
-To submit feedbacks data corresponding to a particular query, you will need the UUID
-of the query. The UUID can be easily obtained from the response data.
+To submit feedback data corresponding to a particular query, you will need the UUID
+of the query. The UUID can be easily obtained from the query response data.
 
 ```js
 client.query('rec', request_data, function(err, resp) {
-  // parse respose data
+  // parse query respose data
   var model_response = resp.data.response;
   var uuid = resp.data.uuid; //uuid
 });
@@ -134,9 +140,8 @@ For the feedback data, you can use any attributes or value pairs that you like.
 
 Example: 
 ```js
-feedback_data = new Object();
-feedback_data["searched_terms"] = "acoommodations";
-feedback_data["num_of_clicks"] = 3;
+feedback_data = { "searched_terms" : "acoommodations",
+                  "num_of_clicks"  : 3 };
 ```
 Now we can send this feedback data to the Predictive
 Service to associate this feedback with this particular query.

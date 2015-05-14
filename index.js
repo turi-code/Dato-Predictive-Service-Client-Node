@@ -54,7 +54,7 @@ PredictiveServiceClient.prototype._getProtocolURI = function(end_point) {
     mapping["protocol"] = "HTTPS";
     mapping["uri"] = end_point.substring(8);
   } else {
-    throw new Error("Error: endpoint " + end_point + " does not contain a protocol (HTTP/HTTPS).");
+    throw new Error("Error: end_point " + end_point + " does not contain a protocol (HTTP/HTTPS).");
   }
   return mapping;
 } 
@@ -186,4 +186,29 @@ PredictiveServiceClient.prototype._initConnection = function() {
   });
 }
 
-module.exports = PredictiveServiceClient
+var Client = function(arg0, arg1, arg2) {
+  if (!(this instanceof Client)) {
+    // constructor without new
+    var args = Array.prototype.slice.call(arguments);
+    var client = Object.create(Client.prototype);
+    return Client.apply(client, args);
+  }
+
+  var argsLen = arguments.length;
+  if (argsLen === 2 && typeof arg0 === 'string' && typeof arg1 === 'string') {
+    // has a valid end point and api key, defaulting verify SSL cert to false
+    return new PredictiveServiceClient(arg0, arg1, null, null);
+  } else if (argsLen === 3 && typeof arg0 === 'string' &&
+      typeof arg1 === 'string' && typeof arg2 === 'boolean') {
+    // has all three arguments valid
+    return new PredictiveServiceClient(arg0, arg1, arg2, null);
+  } else if (argsLen === 1 && typeof arg0 === 'string') {
+    // loading from client config
+    return new PredictiveServiceClient(null, null, null, arg0);
+  } else {
+    throw new Error("Error constructing Predictive Service Client. Please check your arguments.");
+  }
+}
+
+module.exports = Client
+
