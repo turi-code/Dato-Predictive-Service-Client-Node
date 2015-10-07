@@ -22,6 +22,10 @@ var PredictiveServiceClient = function(end_point, api_key, should_verify_certifi
   this.end_point = protocol_uri["uri"];
   this.protocol = protocol_uri["protocol"];
   this.timeout = 10000; // default to 10 seconds timeout
+  this.port = 80; // default port 80
+  if (this.should_verify_certificate == true) {
+    this.port = 443; // HTTPS
+  }
 }
 
 PredictiveServiceClient.prototype.setShouldVerifyCertificate = function(verify) {
@@ -38,8 +42,10 @@ PredictiveServiceClient.prototype.setEndpoint = function(end_point) {
   var protocol_uri = PredictiveServiceClient._getProtocol(end_point);
   if (protocol_uri["protocol"] == "HTTPS") {
     this.setShouldVerifyCertificate(true);
+    this.port = 443;
   } else {
     this.setShouldVerifyCertificate(false);
+    this.port = 80;
   }
   this.end_point = protocol_uri["uri"];
   this.protocol = protocol_uri["protocol"];
@@ -63,7 +69,7 @@ PredictiveServiceClient.prototype.query = function(po_name, data, callback) {
   var postData = JSON.stringify({"api_key": this.api_key, "data": data});
   var options = {
     hostname: this.end_point,
-    port: 80,
+    port: this.port,
     path: '/query/' + po_name,
     method: 'POST',
     headers: {
@@ -78,7 +84,7 @@ PredictiveServiceClient.prototype.feedback = function(request_id, data, callback
   var postData = JSON.stringify({"id": request_id, "api_key": this.api_key, "data": data});
   var options = {
     hostname: this.end_point,
-    port: 80,
+    port: this.port,
     path: '/feedback',
     method: 'POST',
     headers: {
