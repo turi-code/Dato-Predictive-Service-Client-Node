@@ -4,6 +4,21 @@ var http = require('http');
 var https = require('https');
 var util = require('util');
 
+function getProtocolURI(end_point) {
+  var mapping = {};
+  if (end_point.toLowerCase().indexOf("http://") === 0) {
+    mapping["protocol"] = "HTTP";
+    mapping["uri"] = end_point.substring(7);
+  } else if (end_point.toLowerCase().indexOf("https://") === 0) {
+    mapping["protocol"] = "HTTPS";
+    mapping["uri"] = end_point.substring(8);
+  } else {
+    throw new Error("Error: end_point " + end_point + " does not contain a protocol (HTTP/HTTPS).");
+  }
+  return mapping;
+} 
+
+
 var PredictiveServiceClient = function(end_point, api_key, should_verify_certificate, config_file) {
   this.api_key = api_key;
   this.protocol = "";
@@ -18,14 +33,8 @@ var PredictiveServiceClient = function(end_point, api_key, should_verify_certifi
     this.api_key = config['Service Info']['api key'];
     this.should_verify_certificate = config['Service Info']['verify certificate'];
   }
-  var protocol_uri = this._getProtocolURI(end_point);
-  this.end_point = protocol_uri["uri"];
-  this.protocol = protocol_uri["protocol"];
+  this.setEndpoint(end_point);
   this.timeout = 10000; // default to 10 seconds timeout
-  this.port = 80; // default port 80
-  if (this.should_verify_certificate == true) {
-    this.port = 443; // HTTPS
-  }
 }
 
 PredictiveServiceClient.prototype.setShouldVerifyCertificate = function(verify) {
@@ -39,7 +48,7 @@ PredictiveServiceClient.prototype.setTimeout = function(timeout) {
 }
 
 PredictiveServiceClient.prototype.setEndpoint = function(end_point) {
-  var protocol_uri = PredictiveServiceClient._getProtocol(end_point);
+  var protocol_uri = getProtocolURI(end_point);
   if (protocol_uri["protocol"] == "HTTPS") {
     this.setShouldVerifyCertificate(true);
     this.port = 443;
@@ -50,20 +59,6 @@ PredictiveServiceClient.prototype.setEndpoint = function(end_point) {
   this.end_point = protocol_uri["uri"];
   this.protocol = protocol_uri["protocol"];
 }
-
-PredictiveServiceClient.prototype._getProtocolURI = function(end_point) {
-  var mapping = {};
-  if (end_point.toLowerCase().indexOf("http://") === 0) {
-    mapping["protocol"] = "HTTP";
-    mapping["uri"] = end_point.substring(7);
-  } else if (end_point.toLowerCase().indexOf("https://") === 0) {
-    mapping["protocol"] = "HTTPS";
-    mapping["uri"] = end_point.substring(8);
-  } else {
-    throw new Error("Error: end_point " + end_point + " does not contain a protocol (HTTP/HTTPS).");
-  }
-  return mapping;
-} 
 
 PredictiveServiceClient.prototype.query = function(po_name, data, callback) {
   var postData = JSON.stringify({"api_key": this.api_key, "data": data});
