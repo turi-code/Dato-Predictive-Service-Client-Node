@@ -4,20 +4,26 @@ var http = require('http');
 var https = require('https');
 var util = require('util');
 
-function getProtocolURI(end_point) {
+function getProtocolURIPort(end_point) {
   var mapping = {};
+  var uri_port = [];
   if (end_point.toLowerCase().indexOf("http://") === 0) {
     mapping["protocol"] = "HTTP";
-    mapping["uri"] = end_point.substring(7);
+    uri_port = end_point.substring(7).split(":");
   } else if (end_point.toLowerCase().indexOf("https://") === 0) {
     mapping["protocol"] = "HTTPS";
-    mapping["uri"] = end_point.substring(8);
+    uri_port = end_point.substring(8).split(":");
+  
   } else {
     throw new Error("Error: end_point " + end_point + " does not contain a protocol (HTTP/HTTPS).");
   }
+  mapping["uri"] = uri_port[0];
+  if(uri_port.length > 1) {
+    mapping["port"] = Number(uri_port[1]);
+  }
+
   return mapping;
 } 
-
 
 var PredictiveServiceClient = function(end_point, api_key, should_verify_certificate, config_file) {
   this.api_key = api_key;
@@ -35,6 +41,7 @@ var PredictiveServiceClient = function(end_point, api_key, should_verify_certifi
   }
   this.setEndpoint(end_point);
   this.timeout = 10000; // default to 10 seconds timeout
+  this.schema = -1; // schema is not set yet
 }
 
 PredictiveServiceClient.prototype.setShouldVerifyCertificate = function(verify) {
@@ -48,20 +55,76 @@ PredictiveServiceClient.prototype.setTimeout = function(timeout) {
 }
 
 PredictiveServiceClient.prototype.setEndpoint = function(end_point) {
-  var protocol_uri = getProtocolURI(end_point);
-  if (protocol_uri["protocol"] == "HTTPS") {
+  var protocol_uri_port = getProtocolURIPort(end_point);
+  if (protocol_uri_port["protocol"] == "HTTPS") {
     this.setShouldVerifyCertificate(true);
     this.port = 443;
   } else {
     this.setShouldVerifyCertificate(false);
     this.port = 80;
   }
-  this.end_point = protocol_uri["uri"];
-  this.protocol = protocol_uri["protocol"];
+  this.end_point = protocol_uri_port["uri"];
+  this.protocol = protocol_uri_port["protocol"];
+  if ('port' in protocol_uri_port) {
+    this.port = protocol_uri_port['port'];
+  }
 }
 
-PredictiveServiceClient.prototype.query = function(po_name, data, callback) {
-  var postData = JSON.stringify({"api_key": this.api_key, "data": data});
+PredictiveServiceClient.prototype.setSchema = function(cb) { 
+  var b = new Buffer('api_key:' + this.api_key);
+  var options = {
+    hostname: this.end_point,
+    port: this.port,
+    path: '/',
+    method: 'GET',
+    headers: {
+      'Authorization': 'Basic ' + b.toString('base64') 
+    }
+  };
+  var callback = function(error, resp) {
+    if (resp == null) {
+      cb(error);
+    } else {
+      if (resp.statusCode != 200) {
+        throw new Error("Error connecting to Dato Predictive Service %s." % this.end_point);
+      } else { 
+         if (typeof(resp.data) != "string" && 'schema_version' in resp.data) {
+          this.schema = resp.data.schema_version; 
+         } else {
+          this.schema = 0;
+         }
+         cb(null);
+      }
+    }
+  }.bind(this);
+  this._getRequest(options, callback);
+}
+
+PredictiveServiceClient.prototype.query = function(po_name, data, callback) { 
+  
+  var schema_callback = function(error) { 
+    if (error != null) { 
+      throw new Error(error);
+    } else { 
+      this._query(po_name, data, callback);
+    }
+  }.bind(this);
+
+  if (this.schema == -1) { 
+    this.setSchema(schema_callback)
+  } else {
+    this._query(po_name, data, callback);
+  }
+}
+
+PredictiveServiceClient.prototype._query = function(po_name, data, callback) {
+  var postData = "";
+  if (this.schema < 7) { 
+    postData = JSON.stringify({"api_key": this.api_key, "data": data});
+  } else {
+    postData = JSON.stringify({"data": data}); 
+  }
+  var b = new Buffer('api_key:' + this.api_key);
   var options = {
     hostname: this.end_point,
     port: this.port,
@@ -69,14 +132,39 @@ PredictiveServiceClient.prototype.query = function(po_name, data, callback) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Content-Length': postData.length
+      'Content-Length': postData.length,
+      'Authorization': 'Basic ' + b.toString('base64')
     }
   };
   this._postRequest(postData, options, callback);
 }
 
-PredictiveServiceClient.prototype.feedback = function(request_id, data, callback) {
-  var postData = JSON.stringify({"id": request_id, "api_key": this.api_key, "data": data});
+PredictiveServiceClient.prototype.feedback = function(request_id, data, callback) { 
+  
+  var schema_callback = function(error) { 
+    if (error != null) { 
+      throw new Error(error);
+    } else { 
+      this._feedback(request_id, data, callback);
+    }
+  }.bind(this);
+
+  if (this.schema == -1) { 
+    this.setSchema(schema_callback)
+  } else {
+    this._feedback(request_id, data, callback);
+  }
+}
+
+PredictiveServiceClient.prototype._feedback = function(request_id, data, callback) {
+  var postData = "";
+  console.log("schema:" + this.schema);
+  if (this.schema < 7) {
+    postData = JSON.stringify({"id": request_id, "api_key": this.api_key, "data": data});
+  } else {
+    postData = JSON.stringify({"id": request_id, "data": data});
+  }
+  var b = new Buffer('api_key:' + this.api_key);
   var options = {
     hostname: this.end_point,
     port: this.port,
@@ -84,7 +172,8 @@ PredictiveServiceClient.prototype.feedback = function(request_id, data, callback
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Content-Length': postData.length
+      'Content-Length': postData.length,
+      'Authorization': 'Basic ' + b.toString('base64')
     }
   };
   this._postRequest(postData, options, callback);
@@ -171,14 +260,14 @@ PredictiveServiceClient.prototype._getRequest = function(options, callback) {
 PredictiveServiceClient.prototype._initConnection = function() {
   var options = {
     hostname: this.end_point,
-    port: 80,
+    port: this.port,
     path: '/',
     method: 'GET',
   };
 
   this._getRequest(options, function(error, resp) {
     if (resp == null) {
-      throw new Error(e);
+      throw new Error(error);
     } else {
       if (resp.statusCode != 200) {
         throw new Error("Error connecting to Dato Predictive Service %s." % this.end_point);
