@@ -3,11 +3,8 @@ http.createServer(function (req, res) {
     res.writeHead(200, {'Content-Type': 'text/plain'});
     var PredictiveServiceClient = require('dato-predictive-service-client');
     
-    var end_point = "https://ping-test-ps-one-seven-five-1093788135.us-west-2.elb.amazonaws.com"
-    var api_key = "3616490c-3d5a-4391-a261-5618339ccfb2"
-    
-    //var end_point = "http://localhost:9005"
-    //var api_key = "api_key"
+    var end_point = "http://localhost:9005"
+    var api_key = "api_key"
 
     var client = new PredictiveServiceClient(end_point,api_key);
     client.setShouldVerifyCertificate(false);
