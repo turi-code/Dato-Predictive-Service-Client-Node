@@ -3,23 +3,21 @@ var ini = require('ini');
 var http = require('http');
 var https = require('https');
 var util = require('util');
+var url = require('url');
 
 function getProtocolURIPort(end_point) {
   var mapping = {};
-  var uri_port = [];
-  if (end_point.toLowerCase().indexOf("http://") === 0) {
+  parsed_url = url.parse(end_point);
+  if (parsed_url.protocol === "http:") {
     mapping["protocol"] = "HTTP";
-    uri_port = end_point.substring(7).split(":");
-  } else if (end_point.toLowerCase().indexOf("https://") === 0) {
+  } else if (parsed_url.protocol === "https:") {
     mapping["protocol"] = "HTTPS";
-    uri_port = end_point.substring(8).split(":");
-  
   } else {
     throw new Error("Error: end_point " + end_point + " does not contain a protocol (HTTP/HTTPS).");
   }
-  mapping["uri"] = uri_port[0];
-  if(uri_port.length > 1) {
-    mapping["port"] = Number(uri_port[1]);
+  mapping["uri"] = parsed_url.hostname;
+  if(parsed_url.port !== 'null') {
+    mapping["port"] = Number(parsed_url.port);
   }
 
   return mapping;
@@ -111,9 +109,9 @@ PredictiveServiceClient.prototype.query = function(po_name, data, callback) {
   }.bind(this);
 
   if (this.schema == -1) { 
-    this.setSchema(schema_callback)
+    this.setSchema(schema_callback);
   } else {
-    this._query(po_name, data, callback);
+    schema_callback(null);
   }
 }
 
@@ -152,7 +150,7 @@ PredictiveServiceClient.prototype.feedback = function(request_id, data, callback
   if (this.schema == -1) { 
     this.setSchema(schema_callback)
   } else {
-    this._feedback(request_id, data, callback);
+    schema_callback(null);
   }
 }
 
